@@ -281,9 +281,12 @@ for i in inputs:
 
     if (my_stdout != correct_stdout) or (my_stderr.strip() != correct_stderr.strip()) or (myCode.returncode != correctCode.returncode):
         failed = True
+        print(BLUE("\n"*3 + "#"*WIDTH))
+        print(RED(f"Input:\n{i}"))
         print(stdout_diff)
         print(stderr_diff)
         print(return_code_diff)
+        print(BLUE("#"*WIDTH))
 
 if not failed:
     print("\033[1;32;40m\nYou passed the tests!\033[0m\n")
