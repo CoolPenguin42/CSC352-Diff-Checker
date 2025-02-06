@@ -6,7 +6,7 @@
 </p>
 
 ## Contributing:
-If youd like to help fix up the code, feel free to branch and pull request your fixes! Just make sure to test well
+If you would like to help fix up the code or add features, feel free to branch and pull request your fixes! Just make sure to test well
 before doing so
 
 ## KNOWN ISSUES
