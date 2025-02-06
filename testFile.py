@@ -27,7 +27,6 @@ def BLUE(string):
     return "\033[94m" + string + "\033[00m"
 
 
-
 """
 Change directory to the directory of this script. This is important because the c file should be in the same directory as this script.
 """
@@ -84,6 +83,8 @@ def strip_ansi_codes(s: str) -> str:
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', s)
 
+
+
 def side_by_side(
     left: typing.List[str],
     right: typing.List[str],
@@ -93,6 +94,7 @@ def side_by_side(
     left_title: typing.Optional[str] = None,
     right_title: typing.Optional[str] = None,
 ) -> typing.Union[str, typing.List[str]]:
+
     DEFAULT_SEPARATOR = " | "
     separator = separator or DEFAULT_SEPARATOR
     mid_width = (width - len(separator) - (1 - width % 2)) // 2
@@ -103,38 +105,39 @@ def side_by_side(
     )
 
     def reflow(lines):
-        wrapped_lines = list(map(tw.wrap, lines))
-        wrapped_lines_with_linebreaks = [
-            [""] if len(wls) == 0 else wls
-            for wls in wrapped_lines
-        ]
-        return list(itertools.chain.from_iterable(wrapped_lines_with_linebreaks))
+        stripped_lines = [strip_ansi_codes(line) for line in lines]  # Remove ANSI codes for wrapping
+        wrapped_lines = list(map(tw.wrap, stripped_lines))
+        colored_wrapped_lines = []
+
+        for i, wls in enumerate(wrapped_lines):
+            if not wls:
+                wls = [""]
+            original_color = re.match(r"(\033\[[0-9;]*m)?", lines[i])  # Extract ANSI color
+            original_color = original_color.group(0) if original_color else ""
+            colored_wrapped_lines.extend([original_color + w + "\033[00m" for w in wls])  # Restore color
+
+        return colored_wrapped_lines
 
     left = reflow(left)
     right = reflow(right)
     zip_pairs = itertools.zip_longest(left, right)
 
-    if left_title is not None or right_title is not None:
+    if left_title or right_title:
         left_title = left_title or ""
         right_title = right_title or ""
-        zip_pairs = [
-            (left_title, right_title),
-            (mid_width * "-", mid_width * "-")
-        ] + list(zip_pairs)
+        zip_pairs = [(left_title, right_title), ("-" * mid_width, "-" * mid_width)] + list(zip_pairs)
 
     lines = []
     for l, r in zip_pairs:
         l = l or ""
         r = r or ""
         
-        # Compute length ignoring ANSI escape codes
         l_stripped = strip_ansi_codes(l)
         r_stripped = strip_ansi_codes(r)
 
-        # Align using the visual length
         line = "{}{}{}{}".format(
             l,
-            (" " * max(0, mid_width - len(l_stripped))),
+            " " * max(0, mid_width - len(l_stripped)),
             separator,
             r
         )
@@ -143,6 +146,8 @@ def side_by_side(
     if as_string:
         return "\n".join(lines)
     return lines
+
+
 
 def better_diff(
     left: typing.List[str],
@@ -153,24 +158,26 @@ def better_diff(
     left_title: typing.Optional[str] = None,
     right_title: typing.Optional[str] = None,
 ) -> typing.Union[str, typing.List[str]]:
+
     differ = difflib.Differ()
     left_side = []
     right_side = []
 
     difflines = list(differ.compare(left, right))
+    
     for line in difflines:
         op = line[0]
         tail = line[2:]
+
         if op == " ":
-            colored_tail = "\033[92m " + tail + "\033[00m"
-            left_side.append(colored_tail)
-            right_side.append(colored_tail)
+            left_side.append("\033[92m" + tail + "\033[00m")   # Green for matching lines
+            right_side.append("\033[92m" + tail + "\033[00m")
         elif op == "-":
-            left_side.append("\033[91m " + tail + "\033[00m")
+            left_side.append("\033[91m" + tail + "\033[00m")   # Red for removed lines
             right_side.append("")
         elif op == "+":
             left_side.append("")
-            right_side.append("\033[91m " + tail + "\033[00m")
+            right_side.append("\033[91m" + tail + "\033[00m")  # Red for added lines
 
     return side_by_side(
         left=left_side,
@@ -236,13 +243,11 @@ ANSII excapes so you can view that with a good txt viewer.
 IMPORTANT: you need to have the same error messages as the example if you don't want stderr to
 be flagged as different all the time.
 """
-WIDTH = 150 # issue with coloring i am too lazy to fix. keep width at ~ 150 to avoid it lol
+WIDTH = 100
 
 VERBOSE_FILE_LOGGER = False
 
-inputs = [
-
-]
+inputs = []
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
