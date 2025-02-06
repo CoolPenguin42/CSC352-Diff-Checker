@@ -32,3 +32,4 @@ Works on lectura with gcc. Should probably work with clang and other c compiler 
 fixing and pull requesting. Otherwise you can hard code the compile command in the script
 
 ## SOURCES
+Diff output and formatter code: https://gist.github.com/jlumbroso/3ef433b4402b4f157728920a66cc15ed#file-diff_side_by_side-py
