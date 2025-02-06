@@ -66,7 +66,7 @@ ldflags = sysconfig.get_config_var('LDFLAGS')
 source_file = file
 output_binary = file[:-2] # Remove the '.c' extension to get the binary name
 
-compile_command = f"{cc} {cflags} {ldflags} -o {output_binary} {source_file} -lm"
+compile_command = f"{cc} -Wall {cflags} {ldflags} -o {output_binary} {source_file} -lm"
 try:
     subprocess.run(compile_command, shell=True, check=True)
 except subprocess.CalledProcessError as e:
