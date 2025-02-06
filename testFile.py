@@ -262,7 +262,7 @@ for i in inputs:
 
     stdout_diff = diff(my_stdout.split("\n"), correct_stdout.split("\n"), "STDOUT")
     stderr_diff = diff(my_stderr.split("\n"), correct_stderr.split("\n"), "STDERR")
-    return_code_diff = diff([myCode.returncode], [correctCode.returncode], "RETURN CODE")
+    return_code_diff = diff([f"{myCode.returncode}"], [f"{correctCode.returncode}"], "RETURN CODE")
 
     if VERBOSE_FILE_LOGGER:
         f = open(output_binary + "_verbose_output.txt", "a")
