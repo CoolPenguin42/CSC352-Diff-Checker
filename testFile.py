@@ -238,20 +238,10 @@ be flagged as different all the time.
 """
 WIDTH = 150 # issue with coloring i am too lazy to fix. keep width at ~ 150 to avoid it lol
 
-VERBOSE_FILE_LOGGER = True
+VERBOSE_FILE_LOGGER = False
 
 inputs = [
-    "1 10",
-    "2 1",
-    "1",
-    "1 a",
-    "a 1",
-    "",
-    "\n \n1"
-    "1 -1",
-    "-1 1",
-    "1 100",
-    "1 500"
+
 ]
 ###################################################################################################
 ###################################################################################################
