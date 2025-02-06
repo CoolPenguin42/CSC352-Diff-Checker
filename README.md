@@ -14,8 +14,7 @@ If you would like to help fix up the code or add features, feel free to branch a
 before doing so
 
 ## KNOWN ISSUES
-- **Color Bug:** The way it is currently implemented, the ANSII escape sequences for the coloring will get text wrapped.
-unsure how to fix atm, but it is a minor issue that does not really impact performance when width is high.
+- **None Currently**
 
 ## USAGE
 - **1)** put this script in the folder with the c file UUT. Copy the expceted version into the same folder from lectura (this
