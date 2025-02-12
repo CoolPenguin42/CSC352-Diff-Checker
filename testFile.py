@@ -1,10 +1,30 @@
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
-########### DIFF CHECKER CODE INPUT STUFF IS AT THE BOTTOM! CHANGE TO TEST YOUR PROGRAM ###########
+"""
+Use guide:
+1) put this into the folder with your c code and the copied test file. If no copied test file then
+make sure to get it. When you run this, it will compare the stdout, stderr, and err code
+of yours agains the example.
+
+2) edit the below inputs array to contain inputs you would like to try. The strings are essentially
+1:1 like you would type in the console as stdin, but use \n for newlines instead of hitting enter.
+
+3) turn on verbose file logger if you want the whole thing written out to a txt file. Has colored
+ANSII excapes so you can view that with a good txt viewer.
+
+IMPORTANT: you need to have the same error messages as the example if you don't want stderr to
+be flagged as different all the time.
+"""
+WIDTH = 100
+
+VERBOSE_FILE_LOGGER = True
+
+inputs = []
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
+
 from subprocess import Popen, PIPE
 import os
 import glob
@@ -223,34 +243,6 @@ def diff_print(my_arr, correct_arr, title):
         left_title=f"MY {title}",
         right_title=f"CORRECT {title}" 
     ))
-
-
-###################################################################################################
-###################################################################################################
-###################################################################################################
-"""
-Use guide:
-1) put this into the folder with your c code and the copied test file. If no copied test file then
-make sure to get it. When you run this, it will compare the stdout, stderr, and err code
-of yours agains the example.
-
-2) edit the below inputs array to contain inputs you would like to try. The strings are essentially
-1:1 like you would type in the console as stdin, but use \n for newlines instead of hitting enter.
-
-3) turn on verbose file logger if you want the whole thing written out to a txt file. Has colored
-ANSII excapes so you can view that with a good txt viewer.
-
-IMPORTANT: you need to have the same error messages as the example if you don't want stderr to
-be flagged as different all the time.
-"""
-WIDTH = 100
-
-VERBOSE_FILE_LOGGER = False
-
-inputs = []
-###################################################################################################
-###################################################################################################
-###################################################################################################
 
 failed = False # print flag
 
