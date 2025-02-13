@@ -18,7 +18,7 @@ be flagged as different all the time.
 """
 WIDTH = 100
 
-VERBOSE_FILE_LOGGER = True
+VERBOSE_FILE_LOGGER = False
 
 inputs = []
 ###################################################################################################
