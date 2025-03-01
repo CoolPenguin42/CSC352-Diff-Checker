@@ -209,6 +209,28 @@ def better_diff(
         right_title=right_title,
     )
 
+"""
+marks the whitespace before parsing string. allows for diff checking to visually represent
+special space characters and make it easier to see the differences!
+"""
+def mark_whitespace(s: str) -> str:
+    mapping = {
+        ' ': '␣',    # space
+        '\t': '⇥',   # tab
+        '\r': '␍',   # carriage return
+        '\v': '␋',   # vertical tab
+        '\f': '␌',   # form feed
+    }
+    result = []
+    for ch in s:
+        if ch == '\n':
+            # Instead of replacing newline with a marker and losing the break,
+            # append a marker then the actual newline so it remains a line break.
+            result.append('⏎')
+            result.append('\n')
+        else:
+            result.append(mapping.get(ch, ch))
+    return ''.join(result)
 
 
 """
@@ -257,7 +279,11 @@ for i in inputs:
     my_stdout, my_stderr = myCode.communicate(input=i)
     correct_stdout, correct_stderr = correctCode.communicate(input=i)
 
-    stdout_diff = diff(my_stdout.split("\n"), correct_stdout.split("\n"), "STDOUT")
+    stdout_diff = diff(
+        mark_whitespace(my_stdout).split("\n"),
+        mark_whitespace(correct_stdout).split("\n"),
+        "STDOUT"
+    )
     stderr_diff = diff(my_stderr.split("\n"), correct_stderr.split("\n"), "STDERR")
     return_code_diff = diff([f"{myCode.returncode}"], [f"{correctCode.returncode}"], "RETURN CODE")
 
