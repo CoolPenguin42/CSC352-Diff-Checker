@@ -360,7 +360,7 @@ if USE_VALGRIND:
                     print(BLUE("~" * WIDTH))
                     print(GREEN("OUTPUT MATCHES CORRECTLY"))
                     print(BLUE("~" * WIDTH))
-                    print("Valgrind Check:")
+                    print(BLUE("Valgrind Check:"))
                     print(result["valgrind_result"])
                     print(BLUE("~" * WIDTH))
                 else:
@@ -404,7 +404,7 @@ if USE_VALGRIND:
 
     # At the end, print the collected inputs that failed the Valgrind check.
     if valgrind_failures:
-        print(RED("\nThe following inputs failed the Valgrind check:"))
+        print(RED(f"\nThe following {len(valgrind_failures)} inputs failed the Valgrind check:"))
         for inp in valgrind_failures:
             print(RED(repr(inp)))
 else:
