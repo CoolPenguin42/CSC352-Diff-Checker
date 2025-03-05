@@ -332,9 +332,7 @@ if USE_VALGRIND:
             result["valgrind_result"] = GREEN("Valgrind: you passed (does not mean there isn't memory error)")
             result["valgrind_passed"] = True
         else:
-            result["valgrind_result"] = RED("Valgrind error detected." +
-                                            "\nTo debug, run: " + BLUE(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{output_binary}") +
-                                            RED("\nThen inspect the output for errors and leaks."))
+            result["valgrind_result"] = RED("Valgrind error detected.")
             result["valgrind_passed"] = False
 
         result["passed"] = (my_stdout == correct_stdout) and \
@@ -407,6 +405,8 @@ if USE_VALGRIND:
         print(RED(f"\nThe following {len(valgrind_failures)} inputs failed the Valgrind check:"))
         for inp in valgrind_failures:
             print(RED(repr(inp)))
+        print(RED("To debug, run: " + BLUE(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{output_binary}") +
+                                            RED("\nThen inspect the output for errors and leaks!")))
 else:
     valgrind_failures = []
     for count, i in enumerate(inputs):
