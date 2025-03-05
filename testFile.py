@@ -17,6 +17,10 @@ ANSII excapes so you can view that with a good txt viewer.
 
 IMPORTANT: you need to have the same error messages as the example if you don't want stderr to
 be flagged as different all the time.
+
+ALSO NOTE: When using valgrind, it takes a LOOOONG time to initially start up. So it might
+seem like your code is stuck in an infinite loop, but it just needs like 60 something seconds to
+startup before EVENTUALLY outputting
 """
 WIDTH = 100
 
@@ -40,6 +44,7 @@ import textwrap
 import typing
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 def GREEN(string):
     return "\033[92m" + string + "\033[00m"
@@ -95,7 +100,6 @@ except subprocess.CalledProcessError as e:
     print(RED(f"Compilation failed!\nError Output:\n{e.stderr}"))
     sys.exit(1)
 print(GREEN("Compiled " + BLUE(source_file) + GREEN(" into ") + BLUE(output_binary)))
-
 
 
 """
@@ -266,24 +270,21 @@ def diff_print(my_arr, correct_arr, title):
     ))
 
 
+if VERBOSE_FILE_LOGGER:
+    if os.path.exists(output_binary + "_verbose_output.txt"):
+        os.remove(output_binary + "_verbose_output.txt")
+
 
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
-"""
-Configuration Flags:
-VERBOSE_FILE_LOGGER: writes detailed log output to a file.
-USE_VALGRIND: if True, test runs will include a Valgrind check.
-USE_PARALLEL: when True, tests run in parallel (recommended when USE_VALGRIND is True).
-"""
-USE_PARALLEL = USE_VALGRIND    # For this example, run in parallel when using Valgrind.
-failed = False
 fail_count = 0
+valgrind_failures = []  # This list will collect the inputs that fail Valgrind
 
-# ---------------------------
-# Parallel Branch
-# ---------------------------
-if USE_PARALLEL:
+if USE_VALGRIND:
+    """
+    Runs in parallel, since valgrind is slow AF, and non-parallel takes AGES
+    """
     max_workers = min(os.cpu_count(), len(inputs)) if inputs else 1
     results = []
 
@@ -322,39 +323,53 @@ if USE_PARALLEL:
         result["stderr_diff"] = stderr_diff
         result["return_code_diff"] = return_code_diff
 
-        if USE_VALGRIND:
-            valgrind_proc = subprocess.run(
-                ["valgrind", "--leak-check=full", "--show-leak-kinds=all", "--track-origins=yes", "--verbose", f"./{output_binary}"],
-                input=i, capture_output=True, text=True
-            )
-            valgrind_error = valgrind_proc.stderr
-            if re.search(r"ERROR SUMMARY:\s*0 errors", valgrind_error):
-                result["valgrind_result"] = GREEN("Valgrind: you passed (does not mean there isn't memory error)")
-            else:
-                result["valgrind_result"] = RED("Valgrind error detected." +
-                                                "\nTo debug, run: " + BLUE(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{output_binary}") +
-                                                RED("\nThen inspect the output for errors and leaks."))
+        valgrind_proc = subprocess.run(
+            ["valgrind", "--leak-check=full", "--show-leak-kinds=all", "--track-origins=yes", "--verbose", f"./{output_binary}"],
+            input=i, capture_output=True, text=True
+        )
+        valgrind_error = valgrind_proc.stderr
+        if re.search(r"ERROR SUMMARY:\s*0 errors", valgrind_error):
+            result["valgrind_result"] = GREEN("Valgrind: you passed (does not mean there isn't memory error)")
+            result["valgrind_passed"] = True
         else:
-            result["valgrind_result"] = ""
-            
+            result["valgrind_result"] = RED("Valgrind error detected." +
+                                            "\nTo debug, run: " + BLUE(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{output_binary}") +
+                                            RED("\nThen inspect the output for errors and leaks."))
+            result["valgrind_passed"] = False
+
         result["passed"] = (my_stdout == correct_stdout) and \
                            (my_stderr.strip() == correct_stderr.strip()) and \
                            (myCode.returncode == correctCode.returncode)
         return result
 
     completed_count = 0
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(run_single_test, count, i): count for count, i in enumerate(inputs)}
         for future in as_completed(futures):
             result = future.result()
             completed_count += 1
             results.append(result)
+            # Check if diff passed...
             if result["passed"]:
-                print(GREEN(f"Test {result['count']} passed. [{completed_count}/{len(inputs)}]"))
+                # ...but Valgrind failed:
+                if not result.get("valgrind_passed", True):
+                    fail_count += 1
+                    print(RED(f"Test {result['count']} failed. [{completed_count}/{len(inputs)}]"))
+                    print(RED("Input:\n" + repr(result["input"])))
+                    print(BLUE("~" * WIDTH))
+                    print(GREEN("OUTPUT MATCHES CORRECTLY"))
+                    print(BLUE("~" * WIDTH))
+                    print("Valgrind Check:")
+                    print(result["valgrind_result"])
+                    print(BLUE("~" * WIDTH))
+                else:
+                    print(GREEN(f"Test {result['count']} passed. [{completed_count}/{len(inputs)}]"))
             else:
                 fail_count += 1
                 print(RED(f"Test {result['count']} failed. [{completed_count}/{len(inputs)}]"))
-                print(RED("Input:\n" + result["input"]))
+                # Use repr() here so that special characters remain escaped
+                print(RED("Input:\n" + repr(result["input"])))
                 print(BLUE("~" * WIDTH))
                 print(result["stdout_diff"])
                 print(BLUE("~" * WIDTH))
@@ -362,23 +377,24 @@ if USE_PARALLEL:
                 print(BLUE("~" * WIDTH))
                 print(result["return_code_diff"])
                 print(BLUE("~" * WIDTH))
-                if USE_VALGRIND:
-                    print("Valgrind Check:")
-                    print(result["valgrind_result"])
-                    print(BLUE("~" * WIDTH))
+                print(BLUE("Valgrind Check:"))
+                print(result["valgrind_result"])
+                print(BLUE("~" * WIDTH))
+            # Collect inputs that failed the Valgrind check.
+            if not result.get("valgrind_passed", True):
+                valgrind_failures.append(result["input"])
             sys.stdout.flush()
 
     # Write verbose log file if enabled.
     if VERBOSE_FILE_LOGGER:
         with open(output_binary + "_verbose_output.txt", "a") as f:
             for res in sorted(results, key=lambda r: r["count"]):
-                f.write(GREEN(f"\n\n\n\nInput:\n{res['input']}\n"))
+                f.write(GREEN(f"\n\n\n\nInput:\n{repr(res['input'])}\n"))
                 f.write(BLUE("#" * WIDTH) + "\n")
                 f.write(res["stdout_diff"] + "\n")
                 f.write(res["stderr_diff"] + "\n")
                 f.write(res["return_code_diff"] + "\n")
-                if USE_VALGRIND:
-                    f.write("Valgrind Output:\n" + res["valgrind_result"] + "\n")
+                f.write("Valgrind Output:\n" + res["valgrind_result"] + "\n")
                 f.write(BLUE("#" * WIDTH) + "\n")
 
     if fail_count == 0:
@@ -386,10 +402,13 @@ if USE_PARALLEL:
     else:
         print(RED(f"\nFAILED {fail_count} OUT OF {len(inputs)} TESTS! (see above for diff)."))
 
-# ---------------------------
-# Sequential Branch
-# ---------------------------
+    # At the end, print the collected inputs that failed the Valgrind check.
+    if valgrind_failures:
+        print(RED("\nThe following inputs failed the Valgrind check:"))
+        for inp in valgrind_failures:
+            print(RED(repr(inp)))
 else:
+    valgrind_failures = []
     for count, i in enumerate(inputs):
         myCode = Popen(f"./{output_binary}", stdout=PIPE, stderr=PIPE, stdin=PIPE, text=True)
         correctCode = Popen(f"./{correct_code_binary}", stdout=PIPE, stderr=PIPE, stdin=PIPE, text=True)
@@ -411,26 +430,11 @@ else:
             [f"{correctCode.returncode}"],
             "RETURN CODE"
         )
-        
-        if USE_VALGRIND:
-            valgrind_proc = subprocess.run(
-                ["valgrind", f"./{output_binary}"],
-                input=i, capture_output=True, text=True
-            )
-            valgrind_error = valgrind_proc.stderr
-            if re.search(r"ERROR SUMMARY:\s*0 errors", valgrind_error):
-                valgrind_result = GREEN("Valgrind: you passed (does not mean there isn't memory error)")
-            else:
-                valgrind_result = RED("Valgrind error detected." +
-                                      "\nTo debug, run: " + BLUE(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{output_binary}") +
-                                      RED("\nThen inspect the output for errors and leaks."))
-        else:
-            valgrind_result = ""
 
         if (my_stdout != correct_stdout) or (my_stderr.strip() != correct_stderr.strip()) or (myCode.returncode != correctCode.returncode):
             fail_count += 1
             print(BLUE("\n" * 4 + "~" * WIDTH))
-            print(RED(f"Input:\n{i}"))
+            print(RED(f"Input:\n{repr(i)}"))
             print(BLUE("~" * WIDTH))
             print(stdout_diff)
             print(BLUE("~" * WIDTH))
@@ -438,22 +442,16 @@ else:
             print(BLUE("~" * WIDTH))
             print(return_code_diff)
             print(BLUE("~" * WIDTH))
-            if USE_VALGRIND:
-                print("Valgrind Check:")
-                print(valgrind_result)
-                print(BLUE("~" * WIDTH))
         else:
             print(GREEN(f"\033[1;32;40m\nYOU PASSED TEST {count}\033[0m"))
         
         if VERBOSE_FILE_LOGGER:
             with open(output_binary + "_verbose_output.txt", "a") as f:
-                f.write(GREEN(f"\n\n\n\nInput:\n{i}\n"))
+                f.write(GREEN(f"\n\n\n\nInput:\n{repr(i)}\n"))
                 f.write(BLUE("#" * WIDTH) + "\n")
                 f.write(stdout_diff + "\n")
                 f.write(stderr_diff + "\n")
                 f.write(return_code_diff + "\n")
-                if USE_VALGRIND:
-                    f.write("Valgrind Output:\n" + valgrind_result + "\n")
                 f.write(BLUE("#" * WIDTH) + "\n")
 
     if fail_count == 0:
