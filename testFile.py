@@ -283,7 +283,7 @@ except:
             sys.exit(1)
 
     print(GREEN("Contents copied successfully"))
-    print(GREEN("Executable ") + BLUE(correct_code_binary) + GREEN(" found"))
+print(GREEN("Executable ") + BLUE(correct_code_binary) + GREEN(" found"))
 
 
 
