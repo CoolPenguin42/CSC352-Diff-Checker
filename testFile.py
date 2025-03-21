@@ -28,6 +28,7 @@ VERBOSE_FILE_LOGGER = False # Writes out to a file in case you want to see the w
 USE_VALGRIND = False # If you want to test with valgrind
 
 inputs = []
+
 ###################################################################################################
 ###################################################################################################
 ###################################################################################################
@@ -44,6 +45,7 @@ import textwrap
 import typing
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import shutil
 
 
 def GREEN(string):
@@ -246,8 +248,44 @@ try:
     file = glob.glob(correct_code_binary)[0]
 except:
     print(RED("No file matching the pattern (ex + filename) found!"))
-    sys.exit(1)
-print(GREEN("Executable ") + BLUE(correct_code_binary) + GREEN(" found"))
+    # --- Determine the relative path of the script directory ---
+    # This assumes the script is located in a folder like .../assgX/probY/
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Split the directory path into parts
+    parts = script_dir.split(os.sep)
+    if len(parts) < 2:
+        print(RED("Script directory does not have enough subdirectories to determine assignment and problem."))
+        sys.exit(1)
+    # Extract the last two directory names (assgX and probY)
+    relative_path = os.path.join(parts[-2], parts[-1])
+
+    # --- Build the source directory path ---
+    assignments_base = '/home/cs352/spring25/assignments'
+    source_dir = os.path.join(assignments_base, relative_path)
+    if not os.path.exists(source_dir):
+        print(RED("Source directory {} does not exist".format(source_dir)))
+        sys.exit(1)
+
+    print(GREEN("Copying contents from ") + BLUE(source_dir) + GREEN(" to the current directory"))
+
+    # --- Copy contents from source_dir to the current directory ---
+    for item in os.listdir(source_dir):
+        s = os.path.join(source_dir, item)
+        d = os.path.join(script_dir, item)
+        try:
+            if os.path.isdir(s):
+                # For Python 3.8 and above, dirs_exist_ok=True allows copying into an existing directory.
+                shutil.copytree(s, d, dirs_exist_ok=True)
+            else:
+                shutil.copy2(s, d)
+        except Exception as e:
+            print(RED("Failed to copy {}: {}".format(s, e)))
+            sys.exit(1)
+
+    print(GREEN("Contents copied successfully"))
+    print(GREEN("Executable ") + BLUE(correct_code_binary) + GREEN(" found"))
+
+
 
 def diff(my_arr, correct_arr, title):
     return better_diff(
