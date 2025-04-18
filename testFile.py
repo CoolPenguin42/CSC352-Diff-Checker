@@ -446,53 +446,92 @@ if USE_VALGRIND:
         print(RED("To debug, run: " + BLUE(f"valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./{output_binary}") +
                                             RED("\nThen inspect the output for errors and leaks!")))
 else:
-    valgrind_failures = []
-    for count, i in enumerate(inputs):
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    # This function runs a single test and returns a result dictionary.
+    def run_single_test(count, test_input):
+        result = {}
+        result["count"] = count
+        result["input"] = test_input
+
         myCode = Popen(f"./{output_binary}", stdout=PIPE, stderr=PIPE, stdin=PIPE, text=True)
         correctCode = Popen(f"./{correct_code_binary}", stdout=PIPE, stderr=PIPE, stdin=PIPE, text=True)
-        my_stdout, my_stderr = myCode.communicate(input=i)
-        correct_stdout, correct_stderr = correctCode.communicate(input=i)
+        my_stdout, my_stderr = myCode.communicate(input=test_input)
+        correct_stdout, correct_stderr = correctCode.communicate(input=test_input)
 
-        stdout_diff = diff(
+        result["my_stdout"] = my_stdout
+        result["my_stderr"] = my_stderr
+        result["correct_stdout"] = correct_stdout
+        result["correct_stderr"] = correct_stderr
+        result["my_returncode"] = myCode.returncode
+        result["correct_returncode"] = correctCode.returncode
+
+        result["stdout_diff"] = diff(
             mark_whitespace(my_stdout).split("\n"),
             mark_whitespace(correct_stdout).split("\n"),
             "STDOUT"
         )
-        stderr_diff = diff(
+        result["stderr_diff"] = diff(
             my_stderr.split("\n"),
             correct_stderr.split("\n"),
             "STDERR"
         )
-        return_code_diff = diff(
+        result["return_code_diff"] = diff(
             [f"{myCode.returncode}"],
             [f"{correctCode.returncode}"],
             "RETURN CODE"
         )
 
-        if (my_stdout != correct_stdout) or (my_stderr.strip() != correct_stderr.strip()) or (myCode.returncode != correctCode.returncode):
-            fail_count += 1
-            print(BLUE("\n" * 4 + "~" * WIDTH))
-            print(RED(f"Input:\n{repr(i)}"))
-            print(BLUE("~" * WIDTH))
-            print(stdout_diff)
-            print(BLUE("~" * WIDTH))
-            print(stderr_diff)
-            print(BLUE("~" * WIDTH))
-            print(return_code_diff)
-            print(BLUE("~" * WIDTH))
-        else:
-            print(GREEN(f"\033[1;32;40m\nYOU PASSED TEST {count}\033[0m"))
-        
-        if VERBOSE_FILE_LOGGER:
-            with open(output_binary + "_verbose_output.txt", "a") as f:
-                f.write(GREEN(f"\n\n\n\nInput:\n{repr(i)}\n"))
-                f.write(BLUE("#" * WIDTH) + "\n")
-                f.write(stdout_diff + "\n")
-                f.write(stderr_diff + "\n")
-                f.write(return_code_diff + "\n")
-                f.write(BLUE("#" * WIDTH) + "\n")
+        result["passed"] = (my_stdout == correct_stdout) and \
+                           (my_stderr.strip() == correct_stderr.strip()) and \
+                           (myCode.returncode == correctCode.returncode)
+        return result
+
+    fail_count = 0
+    failed_tests = []
+    futures = []
+    results = []
+
+    # Use up to as many workers as CPU cores or tests
+    max_workers = min(os.cpu_count(), len(inputs)) if inputs else 1
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for count, test_input in enumerate(inputs):
+            futures.append(executor.submit(run_single_test, count, test_input))
+
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+            if result["passed"]:
+                print(GREEN(f"\nYOU PASSED TEST {result['count']}"))
+            else:
+                fail_count += 1
+                failed_tests.append((result["count"], result["input"]))
+                print(BLUE("\n" * 4 + "~" * WIDTH))
+                print(RED(f"Input:\n{repr(result['input'])}"))
+                print(BLUE("~" * WIDTH))
+                print(result["stdout_diff"])
+                print(BLUE("~" * WIDTH))
+                print(result["stderr_diff"])
+                print(BLUE("~" * WIDTH))
+                print(result["return_code_diff"])
+                print(BLUE("~" * WIDTH))
+
+            sys.stdout.flush()
+
+            if VERBOSE_FILE_LOGGER:
+                with open(output_binary + "_verbose_output.txt", "a") as f:
+                    f.write(GREEN(f"\n\n\n\nInput:\n{repr(result['input'])}\n"))
+                    f.write(BLUE("#" * WIDTH) + "\n")
+                    f.write(result["stdout_diff"] + "\n")
+                    f.write(result["stderr_diff"] + "\n")
+                    f.write(result["return_code_diff"] + "\n")
+                    f.write(BLUE("#" * WIDTH) + "\n")
 
     if fail_count == 0:
         print(GREEN(f"\nPASSED ALL {len(inputs)} TESTS!"))
     else:
         print(RED(f"\nFAILED {fail_count} OUT OF {len(inputs)} TESTS! (see above for diff)."))
+        print(RED("\nThe following test(s) failed:"))
+        for idx, inp in failed_tests:
+            print(RED(f"  Test {idx}: Input={repr(inp)}"))
